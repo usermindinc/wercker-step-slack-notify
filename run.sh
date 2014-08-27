@@ -3,6 +3,12 @@
 AVATAR=''
 USERNAME=''
 
+WERCKER_SLACK_NOTIFY_SUBDOMAIN="usermind"
+WERCKER_SLACK_NOTIFY_TOKEN="xdLmVvQoOXGsdcfm7nYCqiAL"
+WERCKER_SLACK_NOTIFY_CHANNEL="test-slack"
+WERCKER_SLACK_NOTIFY_USERNAME="wercker"
+WERCKER_STATUS_URL="http://google.com"
+
 if [ ! -n "$WERCKER_SLACK_NOTIFY_SUBDOMAIN" ]; then
 # fatal causes the wercker interface to display the error without the need to
 # expand the step
@@ -38,11 +44,16 @@ fi
 pushd $WERCKER_SOURCE_DIR
 WERCKER_GIT_COMMIT_MESSAGE=$(git log -1 --pretty='%s')
 popd
+WERCKER_GIT_COMMIT_MESSAGE="Grape nuts - not grapes, not nuts"
 
 WERCKER_STATUS_URL=$WERCKER_BUILD_URL
 if [ -n "$DEPLOY" ]; then
     WERCKER_STATUS_URL=$WERCKER_DEPLOY_URL
 fi
+WERCKER_STATUS_URL="http://google.com"
+WERCKER_APPLICATION_NAME="grapenuts"
+WERCKER_STARTED_BY="emaland"
+WERCKER_GIT_BRANCH="bananas"
 
 BUILD_OR_DEPLOY="Build"
 if [ -n "$DEPLOY" ]; then
@@ -51,17 +62,17 @@ fi
 
 BUILD_COLOR=\"danger\"
 BUILD_STATUS_ATTACHMENT="{ \"title\": \"$BUILD_OR_DEPLOY failed\", \"value\": \"<$WERCKER_STATUS_URL|$WERCKER_GIT_COMMIT_MESSAGE>\", \"short\": true }"
-if [ "$WERCKER_RESULT" = "passed" ]; then
+if [ "$WERCKER_RESULT" == "passed" ]; then
   BUILD_COLOR=\"good\"
-  BUILD_STATUS_ATTACHMENT="{ \"title\": \"$BUILD_OR_DEPLOY succeeded\", \"value\": $WERCKER_GIT_COMMIT_MESSAGE, \"short\": true }"
+  BUILD_STATUS_ATTACHMENT="{ \"title\": \"$BUILD_OR_DEPLOY succeeded\", \"value\": \"<$WERCKER_STATUS_URL|$WERCKER_GIT_COMMIT_MESSAGE>\", \"short\": true }"
 fi
 
 BUILD_COMMITTER_ATTACHMENT="{ \"title\": \"Committer\", \"value\": \"$WERCKER_STARTED_BY\", \"short\": true }"
 BUILD_BRANCH_ATTACHMENT="{ \"title\": \"Branch\", \"value\": \"$WERCKER_GIT_BRANCH\", \"short\": true }"
 BUILD_PROJECT_ATTACHMENT="{ \"title\": \"Project\", \"value\": \"$WERCKER_APPLICATION_NAME\", \"short\": true }"
 
-if [ "$WERCKER_SLACK_NOTIFY_ON" = "failed" ]; then
-  if [ "$WERCKER_RESULT" = "passed" ]; then
+if [ "$WERCKER_SLACK_NOTIFY_ON" == "failed" ]; then
+  if [ "$WERCKER_RESULT" == "passed" ]; then
     echo "Skipping.."
     return 0
   fi
@@ -71,7 +82,10 @@ ATTACHMENTS="\"attachments\": [ { \"fallback\": \"build status\", \"color\": $BU
 
 json="{\"channel\": \"#$WERCKER_SLACK_NOTIFY_CHANNEL\", $USERNAME $AVATAR \"text\": \"$WERCKER_SLACK_NOTIFY_MESSAGE\", $ATTACHMENTS }"
 
-RESULT=$(curl -s -d "payload=$json" "https://$WERCKER_SLACK_NOTIFY_SUBDOMAIN.slack.com/services/hooks/incoming-webhook?token=$WERCKER_SLACK_NOTIFY_TOKEN")
+RESULT=$(curl -s -d "payload=$json" "https://$WERCKER_SLACK_NOTIFY_SUBDOMAIN.slack.com/services/hooks/incoming-webhook?token=$WERCKER_SLACK_NOTIFY_TOKEN" --output $WERCKER_STEP_TEMP/result.txt -w "%{http_code}")
+
+echo "PAYLOAD: " $json
+echo "RESULT: " $(cat $WERCKER_STEP_TEMP/result.txt)
 
 if [ "$RESULT" = "500" ]; then
   if grep -Fqx "No token" $WERCKER_STEP_TEMP/result.txt; then
